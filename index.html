@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ESP32 AI Terminal</title>
+<style>
+body{background:#10141c;color:white;font-family:Arial;text-align:center;margin:20px}
+h2{color:#64e5ff}
+textarea{width:95%;max-width:600px;height:90px;font-size:20px;background:#202938;color:white;padding:10px}
+#keys{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;max-width:600px;margin:18px auto}
+button{padding:12px 4px;border-radius:8px;background:#27364a;color:white;border:1px solid #52647d;font-size:16px}
+.selected{background:#00c5e9;color:#111;outline:2px solid white}
+#status{color:#8ee8ad}
+</style>
+</head>
+<body>
+<h2>ESP32 AI INFORMATION TERMINAL</h2>
+<p>Use your HMD controller to select letters.</p>
+<textarea id="q" placeholder="Type your question..."></textarea>
+<div id="keys"></div>
+<p>
+<button onclick="add(' ')">SPACE</button>
+<button onclick="del()">DELETE</button>
+<button onclick="clearQ()">CLEAR</button>
+<button onclick="ask()">ASK AI</button>
+</p>
+<p id="status">Keyboard ready</p>
+<script>
+const chars="ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.,?!'-";
+let pos=0,lastMove=0,oldButtons=[];
+const keys=document.getElementById("keys");
+const q=document.getElementById("q");
+const status=document.getElementById("status");
+
+for(const ch of chars){
+ const b=document.createElement("button");
+ b.textContent=ch;
+ b.onclick=()=>add(ch);
+ keys.appendChild(b);
+}
+function draw(){
+ [...keys.children].forEach((b,i)=>b.classList.toggle("selected",i===pos));
+}
+function add(s){q.value+=s;}
+function del(){q.value=q.value.slice(0,-1);}
+function clearQ(){q.value="";}
+function move(dx,dy){
+ pos=Math.max(0,Math.min(chars.length-1,pos+dx+dy*7));
+ draw();
+}
+async function ask(){
+ status.textContent="AI backend not connected yet.";
+}
+function poll(){
+ const pads=navigator.getGamepads?.()||[];
+ const pad=[...pads].find(p=>p&&p.connected);
+ if(!pad)return;
+ status.textContent="HMD controller connected";
+ let dx=0,dy=0;
+ if((pad.axes?.[0]||0)<-.5)dx=-1;
+ if((pad.axes?.[0]||0)>.5)dx=1;
+ if((pad.axes?.[1]||0)<-.5)dy=-1;
+ if((pad.axes?.[1]||0)>.5)dy=1;
+ if(pad.buttons[14]?.pressed)dx=-1;
+ if(pad.buttons[15]?.pressed)dx=1;
+ if(pad.buttons[12]?.pressed)dy=-1;
+ if(pad.buttons[13]?.pressed)dy=1;
+ if((dx||dy)&&Date.now()-lastMove>180){
+  move(dx,dy);lastMove=Date.now();
+ }
+ for(let i=0;i<4;i++){
+  const pressed=!!pad.buttons[i]?.pressed;
+  if(pressed&&!oldButtons[i]){
+   if(i===0)add(chars[pos]);
+   if(i===1)del();
+   if(i===2)add(" ");
+   if(i===3)ask();
+  }
+  oldButtons[i]=pressed;
+ }
+}
+setInterval(poll,50);
+draw();
+</script>
+</body>
+</html>
